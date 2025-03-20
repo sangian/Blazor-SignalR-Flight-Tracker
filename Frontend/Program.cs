@@ -9,9 +9,10 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
+var BackendApiBaseUrl = builder.Configuration["BackendApi:BaseUrl"];
 builder.Services.AddHttpClient("BackendAPI", client =>
 {
-    client.BaseAddress = new Uri("http://localhost:5039/");
+    client.BaseAddress = new Uri(BackendApiBaseUrl!);
     client.DefaultRequestHeaders.Add("Accept", "application/json");
 });
 
