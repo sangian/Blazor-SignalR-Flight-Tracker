@@ -84,7 +84,7 @@ app.UseAuthorization();
 app.UseCors("AllowAll");
 
 app.MapControllers();
-app.MapHub<LiveTelemetryHub>("/live-telemetry");
-app.MapHub<TelemetryServerHub>("/telemetry-server");
+app.MapHub<LiveTelemetryHub>("/hub/live-telemetry");
+app.MapHub<TelemetryServerHub>("/hub/telemetry-server");
 
 app.Run();

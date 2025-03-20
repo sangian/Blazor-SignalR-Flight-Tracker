@@ -6,7 +6,7 @@ namespace TelemetrySimulator;
 
 public sealed partial class Airplane(int airplaneId) : IDisposable
 {
-    private const string HubUrl = "http://localhost:5039/telemetry-server";
+    private const string HubUrl = "http://localhost:5039/hub/telemetry-server";
     private HubConnection? connection;
     private Channel<AirplaneTelemetry>? streamChannel;
 
@@ -18,8 +18,6 @@ public sealed partial class Airplane(int airplaneId) : IDisposable
 
     private static readonly Random random = new();
     private bool disposed = false;
-
-    private bool isConnected = false;
 
     public int GetAirplaneId()
     {
@@ -90,8 +88,6 @@ public sealed partial class Airplane(int airplaneId) : IDisposable
 
     private Task OnReconnecting(Exception error)
     {
-        isConnected = false;
-
         Console.WriteLine($"Airplane {airplaneId}: Re-connecting to SignalR server...");
 
         if (error is not null)
@@ -104,8 +100,6 @@ public sealed partial class Airplane(int airplaneId) : IDisposable
 
     private Task OnReconnected(string connectionId)
     {
-        isConnected = true;
-        
         Console.WriteLine($"Airplane {airplaneId}: Re-connected to SignalR server! Connection ID: {connectionId}");
         
         StartStreamingChannel();
@@ -115,7 +109,6 @@ public sealed partial class Airplane(int airplaneId) : IDisposable
 
     private async Task OnClosedPermanently(Exception error)
     {
-        isConnected = false;
         Console.WriteLine($"Airplane {airplaneId}: Connection closed permanently");
 
         if (error is not null)

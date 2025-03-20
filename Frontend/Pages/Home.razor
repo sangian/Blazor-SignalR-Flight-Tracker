@@ -7,6 +7,7 @@
 @inject ILogger<Home> Logger
 @inject ApiService ApiService
 @inject IToastService toastService
+@inject IConfiguration Configuration
 
 <PageTitle>Flight Tracker</PageTitle>
 
@@ -33,7 +34,6 @@
 @code {
 	private readonly IReadOnlyCollection<Airplane> Airplanes = Airplane.Airplanes;
 
-	private string hubUrl = "http://localhost:5039/live-telemetry";
 	private HubConnection? hubConnection;
 	private List<MapMarker> mapMarkers = [];
 
@@ -41,6 +41,8 @@
 	{
 		try
 		{
+            var hubUrl = Configuration["SignalR:HubUrl"];
+
 			hubConnection = new HubConnectionBuilder()
 				.WithUrl(Navigation.ToAbsoluteUri(hubUrl), options =>
 				{
