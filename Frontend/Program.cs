@@ -16,7 +16,9 @@ builder.Services.AddHttpClient("BackendAPI", client =>
 });
 
 builder.Services.AddFluentUIComponents();
-builder.Services.AddBlazorGoogleMaps("AIzaSyDP62fj - DP2jv8zbN84gMfF08gCCO3Fai4");
+
+var apiKey = builder.Configuration["GoogleMaps:ApiKey"];
+builder.Services.AddBlazorGoogleMaps(apiKey!);
 
 builder.Services.AddScoped<ApiService>();
 
