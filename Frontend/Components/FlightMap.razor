@@ -1,0 +1,51 @@
+﻿@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+
+@inherits ComponentBase
+
+<AdvancedGoogleMap @ref="@map" Id="map1" Options="@mapOptions" Height="500px">
+	@foreach (var markerRef in MapMarkers!)
+	{
+		var airplane = airplanes.FirstOrDefault(a => a.Id == markerRef.Id);
+		string color = airplane?.Color ?? "#FF0000";
+		double heading = (markerRef.Heading - 90 + 360) % 360;
+
+		// Current position marker
+		<MarkerComponent @key="markerRef.Id" Lat="@markerRef.Current.Lat" Lng="@markerRef.Current.Lng" Clickable="@markerRef.Clickable" Draggable="@markerRef.Draggable" OnClick="@(() => markerRef.Active = !markerRef.Active)">
+			<FluentIcon Icon="@(Icons.Filled.Size48.Airplane)" Color="Color.Custom" CustomColor="@color" Style=@($"transform: rotate({heading}deg);") />
+			<FluentBadge Appearance="Appearance.Accent" BackgroundColor="@color" Color="white">@airplane?.Name</FluentBadge>
+		</MarkerComponent>
+
+		// Source marker
+		<MarkerComponent @key="markerRef.Id + 1000" Lat="@markerRef.Source.Latitude" Lng="@markerRef.Source.Longitude" Clickable="@markerRef.Clickable" Draggable="@markerRef.Draggable" OnClick="@(() => markerRef.Active = !markerRef.Active)">
+			<FluentIcon Icon="@(Icons.Filled.Size48.Location)" Color="Color.Custom" CustomColor="@color" />
+			<FluentBadge Appearance="Appearance.Accent" BackgroundColor="@color" Color="white">@markerRef.Source.Name</FluentBadge>
+		</MarkerComponent>
+
+		// Destination marker
+		<MarkerComponent @key="markerRef.Id + 2000" Lat="@markerRef.Destination.Latitude" Lng="@markerRef.Destination.Longitude" Clickable="@markerRef.Clickable" Draggable="@markerRef.Draggable" OnClick="@(() => markerRef.Active = !markerRef.Active)">
+			<FluentIcon Icon="@(Icons.Filled.Size48.Location)" Color="Color.Custom" CustomColor="@color" />
+			<FluentBadge Appearance="Appearance.Accent" BackgroundColor="@color" Color="white">@markerRef.Destination.Name</FluentBadge>
+		</MarkerComponent>
+	}
+</AdvancedGoogleMap>
+
+@code {
+	private readonly IReadOnlyCollection<Airplane> airplanes = Airplane.Airplanes;
+
+	[Parameter]
+	public List<MapMarker>? MapMarkers { get; set; }
+
+	private AdvancedGoogleMap? map;
+
+	private MapOptions mapOptions = new()
+	{
+		Zoom = 2,
+		Center = new LatLngLiteral()
+		{
+			Lat = 13.505892,
+			Lng = 100.8162
+		},
+		MapId = "FLIGHT_TRACKER_MAP",
+		MapTypeId = MapTypeId.Hybrid
+	};
+}

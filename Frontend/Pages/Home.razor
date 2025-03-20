@@ -1,0 +1,207 @@
+﻿@page "/"
+
+@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using System.Threading.Channels
+
+@inject NavigationManager Navigation
+@inject ILogger<Home> Logger
+@inject ApiService ApiService
+@inject IToastService toastService
+
+<PageTitle>Flight Tracker</PageTitle>
+
+<FlightMap MapMarkers="@mapMarkers" />
+
+<FluentSpacer />
+
+<FluentLayout Style="padding: 20px 20px;">
+	<FluentGrid Justify="JustifyContent.FlexStart">
+		@foreach (var airplane in Airplanes)
+		{
+			var isStarted = mapMarkers.Any(m => m.Id == airplane.Id);
+			var marker = mapMarkers.FirstOrDefault(m => m.Id == airplane.Id);
+
+			<AirplaneControlPanel IsStarted="@isStarted" Marker="@marker" Airplane="@airplane" 
+			Start="async () => await StartAirplane(airplane.Id)" 
+			Stop="async () => await StopAirplane(airplane.Id)" />
+		}
+	</FluentGrid>
+
+	<FluentSpacer />
+</FluentLayout>
+
+@code {
+	private readonly IReadOnlyCollection<Airplane> Airplanes = Airplane.Airplanes;
+
+	private string hubUrl = "http://localhost:5039/live-telemetry";
+	private HubConnection? hubConnection;
+	private List<MapMarker> mapMarkers = [];
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			hubConnection = new HubConnectionBuilder()
+				.WithUrl(Navigation.ToAbsoluteUri(hubUrl), options =>
+				{
+					options.AccessTokenProvider = async () =>
+					{
+						return await Task.FromResult(TokenGenerator.GetJwtToken("FrontendApp", "Frontend"));
+					};
+				})
+				.WithAutomaticReconnect()
+				.Build();
+
+			hubConnection.Reconnected += OnReconnected!;
+			hubConnection.Closed += OnClosedPermanently!;
+
+			HandleStartResponse();
+			HandleStopResponse();
+
+			await ConnectToSignalRHub();
+
+			await HandleStreamTelemetry();
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, "Cannot connect to SignalR hub.");
+
+			toastService.ShowError("Cannot connect to SignalR hub.");
+		}
+	}
+
+	private async Task ConnectToSignalRHub()
+	{
+		await hubConnection!.StartAsync();
+	}
+
+	private async Task OnReconnected(string connectionId)
+	{
+		await HandleStreamTelemetry();
+	}
+
+	private async Task OnClosedPermanently(Exception error)
+	{
+		await Task.Delay(5000); // Wait before attempting to reconnect
+
+		await ConnectToSignalRHub();
+
+		await HandleStreamTelemetry();
+	}
+
+	private void HandleStartResponse()
+	{
+		hubConnection!.On<GenericResponse>("NotifyAirplaneStartResponse", (response) =>
+		{
+			if (response.Success)
+			{
+				toastService.ShowSuccess($"Airplane #{response.AirplaneId} started.");
+			}
+			else
+			{
+				toastService.ShowError($"Cannot start Airplane #{response.AirplaneId}.");
+			}
+		});
+	}
+
+	private void HandleStopResponse()
+	{
+		hubConnection!.On<GenericResponse>("NotifyAirplaneStopResponse", (response) =>
+		{
+			if (response.Success)
+			{
+				toastService.ShowSuccess($"Airplane #{response.AirplaneId} stopped.");
+
+				RemoveMarkersFromMap(response.AirplaneId);
+
+				InvokeAsync(StateHasChanged);
+			}
+			else
+			{
+				toastService.ShowError($"Cannot stop Airplane #{response.AirplaneId}.");
+			}
+		});
+	}
+
+	private async Task HandleStreamTelemetry()
+	{
+		var stream = hubConnection!.StreamAsync<AirplaneTelemetry>("StreamTelemetry");
+
+		await foreach (var telemetry in stream)
+		{
+			RemoveMarkersFromMap(telemetry.AirplaneId);
+
+			AddMarkersToMap(telemetry);
+
+			await InvokeAsync(StateHasChanged);
+
+			if (telemetry.Status == "Arrived")
+			{
+				toastService.ShowSuccess($"Airplane #{telemetry.AirplaneId} has arrived.");
+			}
+		}
+    }
+
+	private async Task StartAirplane(int airplaneId)
+	{
+		try
+		{
+			if (hubConnection?.State != HubConnectionState.Connected)
+			{
+				toastService.ShowError("Cannot connect to SignalR hub.");
+				return;
+			}
+
+			await ApiService.StartAirplane(airplaneId);
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, $"Error starting Airplane #{airplaneId}");
+			toastService.ShowError($"Error starting Airplane #{airplaneId}");
+		}
+	}
+
+	private async Task StopAirplane(int airplaneId)
+	{
+		try
+		{
+			if (hubConnection?.State != HubConnectionState.Connected)
+			{
+				toastService.ShowError("Cannot connect to SignalR hub.");
+				return;
+			}
+
+			await ApiService.StopAirplane(airplaneId);
+			RemoveMarkersFromMap(airplaneId);
+		}
+		catch (Exception ex)
+		{
+			Logger.LogError(ex, $"Error stopping Airplane #{airplaneId}");
+			toastService.ShowError($"Error stopping Airplane #{airplaneId}");
+		}
+	}
+
+	private void AddMarkersToMap(AirplaneTelemetry telemetry)
+	{
+		mapMarkers.Add(new MapMarker()
+		{
+			Id = telemetry.AirplaneId,
+            Source = telemetry.Source,
+            Destination = telemetry.Destination,
+            Current = new LatLngLiteral { Lat = telemetry.Current.Latitude, Lng = telemetry.Current.Longitude },
+			Heading = telemetry.Heading,
+			Altitude = telemetry.Altitude,
+			Velocity = telemetry.Velocity,
+			Eta = telemetry.Eta,
+            Status = telemetry.Status,
+			Active = true,
+			Clickable = false,
+			Draggable = false
+		});
+	}
+
+    private void RemoveMarkersFromMap(int airplaneId)
+    {
+        mapMarkers.RemoveAll(m => m.Id == airplaneId);
+    }
+}

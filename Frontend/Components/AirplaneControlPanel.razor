@@ -1,0 +1,70 @@
+﻿@using Icons = Microsoft.FluentUI.AspNetCore.Components.Icons
+@using Frontend.Models
+
+@inherits ComponentBase
+
+<FluentGridItem xs="12" sm="4" md="3" lg="2" xl="2">
+    <FluentCard MinimalStyle="true" Width="100%" Height="100%">
+        <FluentStack Orientation="Orientation.Vertical" Style="height:100%; justify-content:space-between;">
+            <h5 style="display: flex; align-items: flex-start; gap: 10px;">
+                <FluentIcon Icon="@(Icons.Filled.Size24.Airplane)" Color="Color.Custom" CustomColor="@Airplane.Color" />
+                @Airplane.Name (@Airplane.Manufacturer @Airplane.Model)
+            </h5>
+            <span><b>Route:</b> @(Marker?.Source.Name.ToUpper() ?? "-") to @(Marker?.Destination.Name.ToUpper() ?? "-") </span>
+            <span><b>Status:</b> @(Marker?.Status?.ToUpper() ?? "-") </span>
+            <span><b>ETA:</b> @FormatEta(Marker?.Eta ?? 0) </span>
+            <span><b>Altitude:</b> @((Marker?.Altitude ?? 0).ToString("N2")) m</span>
+            <span><b>Velocity:</b> @((Marker?.Velocity ?? 0).ToString("N2")) km/h</span>
+            <span><b>Heading:</b> @((Marker?.Heading ?? 0).ToString("F2")) &deg;</span>
+            <span><b>Latitude:</b> @((Marker?.Current.Lat ?? 0).ToString("F6"))</span>
+            <span><b>Longitude:</b> @((Marker?.Current.Lng ?? 0).ToString("F6"))</span>
+
+            @if (IsStarted)
+            {
+                <FluentButton Appearance="Appearance.Accent" BackgroundColor="#FFA000" Color="#FFFFFF" Style="width: 100%; margin-top: 5px;" OnClick="() => StopAirplane(Airplane.Id)">
+                    Stop Airplane
+                </FluentButton>
+            }
+            else
+            {
+                <FluentButton Appearance="Appearance.Accent" BackgroundColor="#1A1F71" Color="#FFFFFF" Style="width: 100%; margin-top: 5px;" OnClick="() => StartAirplane(Airplane.Id)">
+                    Start Airplane
+                </FluentButton>
+            }
+        </FluentStack>
+    </FluentCard>
+</FluentGridItem>
+
+@code {
+    [Parameter]
+    public bool IsStarted { get; set; } = false;
+
+    [Parameter]
+    public required MapMarker Marker { get; set; }
+
+    [Parameter]
+    public required Airplane Airplane { get; set; }
+
+    [Parameter]
+    public EventCallback Start { get; set; }
+
+    [Parameter]
+    public EventCallback Stop { get; set; }
+
+    private async Task StartAirplane(int airplaneId)
+    {
+        await Start.InvokeAsync(airplaneId);
+    }
+
+    private async Task StopAirplane(int airplaneId)
+    {
+        await Stop.InvokeAsync(airplaneId);
+    }
+
+    private string FormatEta(double etaMinutes)
+    {
+        int hours = (int)(etaMinutes / 60);
+        int minutes = (int)(etaMinutes % 60);
+        return $"{hours} hours {minutes} minutes";
+    }
+}
